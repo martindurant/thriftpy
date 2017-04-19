@@ -49,20 +49,10 @@ UNIX = platform.system() in ("Linux", "Darwin")
 if UNIX and not PYPY:
     # rebuild .c files if cython available
     if CYTHON:
-        cythonize("thriftpy/transport/cybase.pyx")
-        cythonize("thriftpy/transport/**/*.pyx")
-        cythonize("thriftpy/protocol/cybin/cybin.pyx")
+        cythonize("thriftpy/protocol/compact.pyx")
 
-    ext_modules.append(Extension("thriftpy.transport.cybase",
-                                 ["thriftpy/transport/cybase.c"]))
-    ext_modules.append(Extension("thriftpy.transport.buffered.cybuffered",
-                                 ["thriftpy/transport/buffered/cybuffered.c"]))
-    ext_modules.append(Extension("thriftpy.transport.memory.cymemory",
-                                 ["thriftpy/transport/memory/cymemory.c"]))
-    ext_modules.append(Extension("thriftpy.transport.framed.cyframed",
-                                 ["thriftpy/transport/framed/cyframed.c"]))
-    ext_modules.append(Extension("thriftpy.protocol.cybin",
-                                 ["thriftpy/protocol/cybin/cybin.c"]))
+    ext_modules.append(Extension("thriftpy.protocol.compact",
+                                 ["thriftpy/protocol/compact.c"]))
 
 setup(name="thriftpy",
       version=version,

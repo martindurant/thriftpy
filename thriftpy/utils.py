@@ -4,6 +4,7 @@ from __future__ import absolute_import
 
 import binascii
 
+
 def hexlify(byte_array, delimeter=' '):
     s = binascii.hexlify(byte_array).decode('utf-8')
     return delimeter.join(a+b for a, b in zip(s[::2], s[1::2]))
