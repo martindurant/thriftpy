@@ -139,27 +139,6 @@ class TCompactProtocol(object):
             raise TException("Length < 0")
         return result
 
-    def read_message_begin(self):
-        proto_id = self.read_ubyte()
-        if proto_id != self.PROTOCOL_ID:
-            raise TProtocolException(TProtocolException.BAD_VERSION,
-                                     'Bad protocol id in the message: %d'
-                                     % proto_id)
-
-        ver_type = self.read_ubyte()
-        type = (ver_type >> self.TYPE_SHIFT_AMOUNT) & self.TYPE_BITS
-        version = ver_type & self.VERSION_MASK
-        if version != self.VERSION:
-            raise TProtocolException(TProtocolException.BAD_VERSION,
-                                     'Bad version: %d (expect %d)'
-                                     % (version, self.VERSION))
-        seqid = read_varint(self.trans)
-        name = self.read_string()
-        return name, type, seqid
-
-    def read_message_end(self):
-        assert len(self._structs) == 0
-
     def read_field_begin(self):
         type = self.read_ubyte()
         if type & 0x0f == TType.STOP:

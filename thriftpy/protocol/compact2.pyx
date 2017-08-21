@@ -41,16 +41,15 @@ cdef class bytesIO:
         return self.loc
 
 
-cdef uint64_t read_varint(bytesIO data):
-    cdef uint64_t result = 0
+cdef int64_t read_varint(bytesIO data):
+    cdef int64_t result = 0
     cdef short shift = 0
-    cdef uint8_t byte
+    cdef int i = 0
 
     while True:
         byte = data.data()[0]
         data.advance(1)
         result |= (byte & 0x7f) << shift
-        #print('varint', byte, result)
         if byte >> 7 == 0:
             return result
         shift += 7
@@ -71,7 +70,7 @@ cdef int8_t byte(bytesIO data):
     return out
 
 
-cpdef uint8_t ubyte(bytesIO data):
+cdef uint8_t ubyte(bytesIO data):
     cdef uint8_t out
     memcpy(&out, data.data(), 1)
     data.advance(1)
@@ -120,15 +119,9 @@ def read_string(bytesIO data):
     if not data.check(1):
         raise RuntimeError('Input ended')
     size = read_varint(data)
-    #print(size)
     if not data.check(size):
         raise RuntimeError('Input ended')
-    try:
-        out = data.data()[:size].decode('UTF-8', 'strict')
-    except UnicodeDecodeError:
-        out = data.data()[:size]
-    data.advance(size)
-    #print(out)
+    out = data.data()[:size].decode('UTF-8', 'strict')
     return out
 
 
@@ -151,7 +144,7 @@ cdef enum:
 def read_thrift(object thrift_struct, bytesIO data):
     """
     Read compact binary thrift data into specification
-
+    
     :param thrift_spec: object
         Must have thrift_spec class attribute giving field types (which can
         point to further nested thrift objects.
@@ -164,15 +157,12 @@ def read_thrift(object thrift_struct, bytesIO data):
     cdef dict out = {}
     while True:
         if not data.check(1):
+            raise RuntimeError('Input ended')
+        type = ubyte(data) & 0x0f
+        if type & 0x0f == STOP:
             break
-        type = ubyte(data)
-        #print('ubyte', data.tell())
+
         delta = type >> 4
-        type = type & 0x0f
-        if type == STOP:
-            break
-        #print('type', type)
-        #print('delta', delta, data.tell())
         if delta == 0:
             if not data.check(1):
                 # could be more bytes here, but most commonly one
@@ -180,24 +170,20 @@ def read_thrift(object thrift_struct, bytesIO data):
             fid = from_zig_zag(read_varint(data))
         else:
             fid += delta
-        #print('Extracting from structure', thrift_struct)
+
         fspec = thrift_struct.thrift_spec[fid]
-        #print('field spec', fid, type, fspec, data.tell())
-        if type in [MAP, SET, LIST]:
+        ttype = fspec[0] & 0x0f
+        if ttype in [MAP, SET, LIST]:
             fname, spec, req = fspec[1:]
         else:
-            if len(fspec) == 2:
-                fname, spec = fspec[1], None
-            else:
-                fname, spec = fspec[1: 3]
+            spec = None
+            fname, req = fspec[1:]
 
         out[fname] = read_val(type, data, spec)
-        #print(fname, '=', out[fname], data.tell())
     return thrift_struct(**out)
 
 
 def read_val(uint8_t type, bytesIO data, object spec):
-    #print('read', type, data.tell())
     if type == TRUE:
         return True
     elif type == FALSE:
@@ -229,10 +215,10 @@ def read_val(uint8_t type, bytesIO data, object spec):
         r_type, sz = read_collection_begin(data)
 
         for i in range(sz):
-            if v_type != STRUCT:
-                result.append(read_val(r_type, data, None))
+            if v_spec is None:
+                result.append(read_val(v_type, data, None))
             else:
-                result.append(read_thrift(spec[1], data))
+                result.append(read_thrift(spec, data))
 
         return result
 
